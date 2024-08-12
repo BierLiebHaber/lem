@@ -51,6 +51,7 @@
 (defun (setf config-var) (value key)
   ;; The hook gets called first so if the config breaks something immidiatly we
   ;; ideally don't save the config
+  (print 'test)
   (alexandria:when-let ((hook (config-var-value-changed-hook
                                (gethash key *known-configs*))))
     (funcall hook value))
@@ -62,7 +63,8 @@
                          :direction :output
                          :if-exists :supersede
                          :if-does-not-exist :create)
-      (pprint plist out)))
+      (let ((*package* (find-package :keyword)))
+        (pprint plist out))))
   value)
 
 (defmacro config (key &optional default)
