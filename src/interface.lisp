@@ -38,6 +38,9 @@
 
 (defvar lem-if:*background-color-of-drawing-window* nil)
 
+(deftype cursor-type ()
+  '(member :box :bar :underline))
+
 (defgeneric lem-if:invoke (implementation function))
 (defgeneric lem-if:get-background-color (implementation))
 (defgeneric lem-if:get-foreground-color (implementation))
@@ -121,10 +124,10 @@
 
 (defmacro with-implementation (implementation &body body)
   `(let* ((*implementation* ,implementation)
-          (bt:*default-special-bindings*
+          (bt2:*default-special-bindings*
             (acons '*implementation*
                    *implementation*
-                   bt:*default-special-bindings*)))
+                   bt2:*default-special-bindings*)))
      ,@body))
 
 (defun display-background-mode ()

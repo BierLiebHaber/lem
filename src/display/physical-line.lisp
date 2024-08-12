@@ -34,7 +34,10 @@
 
 (defclass eol-cursor-object (drawing-object)
   ((color :initarg :color
-          :reader eol-cursor-object-color)))
+          :reader eol-cursor-object-color)
+   (true-cursor-p :initarg :true-cursor-p
+                  :initform nil
+                  :reader eol-cursor-object-true-cursor-p)))
 
 (defclass extend-to-eol-object (drawing-object)
   ((color :initarg :color
@@ -86,8 +89,9 @@
          (extend-to-eol-object-color drawing-object-2)))
 
 (defmethod drawing-object-equal ((drawing-object-1 line-end-object) (drawing-object-2 line-end-object))
-  (equal (line-end-object-offset drawing-object-1)
-         (line-end-object-offset drawing-object-2)))
+  (and (call-next-method)
+       (equal (line-end-object-offset drawing-object-1)
+              (line-end-object-offset drawing-object-2))))
 
 (defmethod drawing-object-equal ((drawing-object-1 image-object) (drawing-object-2 image-object))
   nil)
@@ -139,7 +143,8 @@
          (list (make-instance 'eol-cursor-object
                               :color (parse-color
                                       (attribute-background
-                                       (eol-cursor-item-attribute item))))))
+                                       (eol-cursor-item-attribute item)))
+                              :true-cursor-p (eol-cursor-item-true-cursor-p item))))
         ((typep item 'extend-to-eol-item)
          (list (make-instance 'extend-to-eol-object :color (extend-to-eol-item-color item))))
         ((typep item 'line-end-item)

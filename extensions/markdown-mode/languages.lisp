@@ -6,7 +6,9 @@
 (defparameter *language-mode-pairs*
   `(("common-lisp" . lem-lisp-mode:lisp-mode)
     ("lisp" . lem-lisp-mode:lisp-mode)
-    ("shell" . lem-posix-shell-mode:posix-shell-mode)))
+    ("emacs-lisp" . lem-elisp-mode:elisp-mode)
+    ("shell" . lem-posix-shell-mode:posix-shell-mode)
+    ("json" . lem-json-mode:json-mode)))
 
 (defun find-mode-by-language-name (language-name)
   (or (cdr (assoc language-name *language-mode-pairs* :test #'equal))

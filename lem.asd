@@ -48,6 +48,7 @@
                              (:file "queue")
                              (:file "hooks")
                              (:file "var")
+                             (:file "socket")
                              (:file "utils")
                              (:module "character"
                               :serial t
@@ -72,6 +73,7 @@
                                            (:file "point")
                                            (:file "edit")
                                            (:file "mark")
+                                           (:file "undo")
                                            (:file "buffer-insert")
                                            (:file "basic")
                                            (:file "syntax-predicates")
@@ -219,7 +221,6 @@
                "lem-html-mode"
                "lem-python-mode"
                "lem-posix-shell-mode"
-               "lem-markdown-mode"
                "lem-js-mode"
                "lem-typescript-mode"
                "lem-json-mode"
@@ -250,19 +251,11 @@
                "lem-erlang-mode"
                "lem-documentation-mode"
                "lem-elisp-mode"
-               "lem-color-preview"))
-
-(defsystem "lem/legit"
-  :serial t
-  :depends-on ("lem" "lem-patch-mode" "lem-yaml-mode" "lem-markdown-mode")
-  :components ((:module "extensions/legit"
-                :components ((:file "porcelain")
-                             (:file "peek-legit")
-                             (:file "legit")
-                             (:file "legit-rebase")
-                             (:file "legit-commit")))
-               (:module "scripts"
-                :components ((:static-file "dumbrebaseeditor.sh")))))
+               "lem-markdown-mode"
+               "lem-color-preview"
+               "lem-lua-mode"
+               "lem-terminal"
+               "lem-legit"))
 
 (defsystem "lem/executable"
   :build-operation program-op

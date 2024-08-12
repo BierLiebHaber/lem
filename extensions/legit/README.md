@@ -85,6 +85,22 @@ You can push to the current remote branch with `P p` and pull changes (fetch) wi
 
 Note: after pressing "P" or "F", you will not see an intermediate window giving you choices. Just press "P p" one after the other.
 
+## Show commits log
+
+Press `l l` (lowercase "L", twice) to show the commits log in a dedicated buffer, with pagination.
+
+It defaults to showing the first 200 commits. Press `f` or `b` to see
+the next or the previous page of the commits history.
+
+Press `F` and `B` to go to the last or first page of commits.
+
+Configuration:
+
+- you can set `lem/porcelain:*commits-log-page-size*` to another length (defaults to 200).
+
+Note that going to the last page with `B` might take a few seconds on large repositories.
+
+
 ## Interactive rebase
 
 You can start a Git interactive rebase. Place the cursor on a commit you want to rebase from, and press `r i`.
@@ -183,7 +199,7 @@ For example:
 
 ~~~lisp
 (defun hg-project-p ()
-  "Return t if we find a .hg/ directory in the current directory (which should be the project root. Use `lem/legit::with-current-project`)."
+  "Return t if we find a .hg/ directory in the current directory (which should be the project root. Use `lem/porcelain:with-current-project`)."
   (values (uiop:directory-exists-p ".hg")
           :hg))
 ~~~
@@ -217,7 +233,6 @@ Please report any bug, and please let's discuss before you open a Github issue f
 and then:
 
 - visual submenu to pick subcommands
-- view log
 - stage only selected region (more precise than hunks)
 - unstage/stage/discard multiple files
 - stashes

@@ -114,10 +114,14 @@
   (when (current-theme)
     (get-color-theme-color (find-color-theme (current-theme)) name)))
 
-(defun maybe-base-color (name)
-  (if (typep name 'base-color)
-      (base-color name)
-      name))
+(defun ensure-color (color)
+  (typecase color
+    (base-color
+     (base-color color))
+    (color
+     (color-to-hex-string color))
+    (otherwise
+     color)))
 
 (define-major-mode color-theme-selector-mode ()
     (:name "Themes"
@@ -156,8 +160,7 @@
     (switch-to-buffer buffer)
     (change-buffer-mode buffer 'color-theme-selector-mode)))
 
-
 (defun initialize-color-theme ()
-  (load-theme (config :color-theme "decaf") nil))
+  (load-theme (config :color-theme "lem-default") nil))
 
 (add-hook *after-init-hook* 'initialize-color-theme)

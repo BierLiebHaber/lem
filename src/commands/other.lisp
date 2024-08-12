@@ -8,7 +8,9 @@
            :quick-exit
            :execute-command
            :show-context-menu
-           :load-library))
+           :load-library)
+  #+sbcl
+  (:lock t))
 (in-package :lem-core/commands/other)
 
 (define-key *global-keymap* "NopKey" 'nop-command)
@@ -28,7 +30,7 @@
 
 (define-command keyboard-quit () ()
   "Signal a `quit` condition."
-  (error 'editor-abort))
+  (error 'editor-abort :message nil))
 
 (define-command escape () ()
   "Signal a `quit` condition silently."
@@ -61,7 +63,7 @@
                 :completion-function (lambda (str)
                                        (sort
                                         (if (find #\- str)
-                                            (completion-hypheen str (all-command-names))
+                                            (completion-hyphen str (all-command-names))
                                             (completion str (all-command-names)))
                                         #'string-lessp))
                 :test-function 'exist-command-p

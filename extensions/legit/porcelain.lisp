@@ -1,5 +1,5 @@
 
-(defpackage :lem/porcelain
+(uiop:define-package :lem/porcelain
   (:use :cl)
   (:shadow :push)
   (:import-from :trivial-types
@@ -26,11 +26,14 @@
    :stage
    :unstage
    :vcs-project-p
-   )
+   :*diff-context-lines*
+   :commits-log
+   :*commits-log-page-size*
+   :commit-count)
   (:documentation "Functions to run VCS operations: get the list of changes, of untracked files, commit, push… Git support is the main goal, a simple layer is used with other VCS systems (Fossil, Mercurial).
 
 On interactive commands, Legit will check what VCS is in use in the current project.
-When used programmatically, bind the `lem/porcelain:*vcs*` variable in your caller. See `lem/legit:with-current-project`.
+When used programmatically, bind the `lem/porcelain:*vcs*` variable in your caller. See `lem/porcelain:with-current-project`.
 
 When multiple VCS are used at the same time in a project, Git takes
 precedence by default. See `lem/porcelain:*vcs-existence-order*`."))
@@ -44,8 +47,6 @@ Supported version control systems:
 - Mercurial: preliminary support
 
 TODOs:
-
-- show missing files.
 
 Mercurial:
 
@@ -69,6 +70,9 @@ Mercurial:
 (defvar *nb-latest-commits* 10
   "Number of commits to show in the status.")
 
+(defvar *commits-log-page-size* 200
+  "Number of commits to show in the commits log.")
+
 (defvar *branch-sort-by* "-creatordate"
   "When listing branches, sort by this field name.
   Prefix with \"-\" to sort in descending order.
@@ -81,10 +85,13 @@ Mercurial:
 
   For staged files, --cached is added by the command.")
 
+(defvar *diff-context-lines* 4
+  "How many lines of context before/after the first committed line")
+
 (defvar *vcs* nil
   "git, fossil? For current project. Bind this in the caller.
 
-  For instance, see the legit::with-current-project macro that lexically binds *vcs* for an operation.")
+  For instance, see the lem/porcelain:with-current-project macro that lexically binds *vcs* for an operation.")
 
 (define-condition porcelain-condition (simple-error)
   ())
@@ -104,7 +111,7 @@ Mercurial:
 
 
 (defun git-project-p ()
-  "Return t if we find a .git/ directory in the current directory (which should be the project root. Use `lem/legit::with-current-project`)."
+  "Return t if we find a .git/ directory in the current directory (which should be the project root. Use `lem/porcelain:with-current-project`)."
   (values (uiop:directory-exists-p ".git")
           :git))
 
@@ -120,7 +127,7 @@ Mercurial:
              return (values file :fossil)))))
 
 (defun hg-project-p ()
-  "Return t if we find a .hg/ directory in the current directory (which should be the project root. Use `lem/legit::with-current-project`)."
+  "Return t if we find a .hg/ directory in the current directory (which should be the project root. Use `lem/porcelain:with-current-project`)."
   (values (uiop:directory-exists-p ".hg")
           :hg))
 
@@ -209,7 +216,7 @@ allows to learn about the file state: modified, deleted, ignored… "
        (values out error)))))
 
 ;; Dispatching on the right VCS:
-;; *vcs* is bound in the caller (in legit::with-current-project).
+;; *vcs* is bound in the caller (in lem/porcelain:with-current-project).
 (defun porcelain ()
   "Dispatch on the current `*vcs*` and get current changes (added, modified files…)."
   (case *vcs*
@@ -218,11 +225,11 @@ allows to learn about the file state: modified, deleted, ignored… "
     (:hg (hg-porcelain))
     (t (porcelain-error "VCS not supported: ~a" *vcs*))))
 
-(defun git-components()
+(defun git-components ()
   "Return 3 values:
   - untracked files
   - modified and unstaged files
-  - modified and stages files.
+  - modified and staged files
 
    Git manual:
 
@@ -242,16 +249,19 @@ allows to learn about the file state: modified, deleted, ignored… "
        •   U = updated but unmerged"
   (loop for line in (str:lines (porcelain))
         for file = (subseq line 3)
+        for status = (subseq line 0 2)
         unless (str:blankp line)
-          if (equal (elt line 0) #\M)
-            collect file into modified-staged-files
-        if (equal (elt line 0) #\A)
-          ;; Here we don't differentiate between modified and newly added.
-          ;; We could do better.
-          collect file into modified-staged-files
-        if (equal (elt line 1) #\M)
-          collect file into modified-unstaged-files
-        if (str:starts-with-p "??" line)
+          if (equal (elt status 0) #\M)
+            collect (list :file file :type :modified) into modified-staged-files
+        if (equal (elt status 0) #\A)
+          collect (list :file file :type :added) into modified-staged-files
+        if (equal (elt status 0) #\D)
+          collect (list :file file :type :deleted) into modified-staged-files
+        if (equal (elt status 1) #\M)
+          collect (list :file file :type :modified) into modified-unstaged-files
+        if (equal (elt status 1) #\D)
+          collect (list :file file :type :deleted) into modified-unstaged-files
+        if (str:starts-with-p "??" status)
           collect file into untracked-files
         finally (return (values untracked-files
                                 modified-unstaged-files
@@ -277,24 +287,26 @@ allows to learn about the file state: modified, deleted, ignored… "
         unless (str:blankp line)
           ;; Modified
           if (equal (elt line 0) #\M)
-            collect file into modified-staged-files
+            collect (list :file file :type :modified) into modified-staged-files
         ;; Added
         if (equal (elt line 0) #\A)
-          ;; is that enough?
-          collect file into modified-staged-files
-        ;; Modified
-        if (equal (elt line 1) #\X)  ;?
-          collect file into modified-unstaged-files
+          collect (list :file file :type :added) into modified-staged-files
+        ;; Removed
+        if (equal (elt line 0) #\R)
+          collect (list :file file :type :deleted) into modified-staged-files
+        ;; Modified (unstaged)
+        if (or (equal (elt line 1) #\M) (equal (elt line 1) #\X))
+          collect (list :file file :type :modified) into modified-unstaged-files
         ;; Untracked
         if (str:starts-with-p "?" line)
           collect file into untracked-files
         ;; Missing (deleted)
         if (str:starts-with-p "!" line)
-          collect file into missing-files
+          collect (list :file file :type :deleted) into modified-unstaged-files
         finally (return (values untracked-files
                                 modified-unstaged-files
-                                modified-staged-files
-                                missing-files))))
+                                modified-staged-files))))
+
 (defun fossil-components ()
   "Return values:
   - untracked files (todo)
@@ -305,12 +317,16 @@ allows to learn about the file state: modified, deleted, ignored… "
         for status = (first parts)
         for file = (second parts)
         if (equal "ADDED" status)
-          collect file into added-files
+          collect (list :file file :type :added) into modified-staged-files
         if (equal "EDITED" status)
-          collect file into edited-files
-        finally (return (values nil
-                                added-files
-                                edited-files))))
+          collect (list :file file :type :modified) into modified-staged-files
+        if (equal "DELETED" status)
+          collect (list :file file :type :deleted) into modified-staged-files
+        if (equal "UNKNOWN" status)
+          collect file into untracked-files
+        finally (return (values untracked-files
+                                nil
+                                modified-staged-files))))
 
 (defun components ()
   (case *vcs*
@@ -329,16 +345,19 @@ allows to learn about the file state: modified, deleted, ignored… "
   (run-git
    (concatenate 'list
                 *file-diff-args*
+                (list (format nil "-U~D" *diff-context-lines*))
                 (if cached '("--cached"))
                 (list file))))
 
 (defun hg-file-diff (file &key cached)
   "Show the diff of staged files (and only them)."
   (when cached
-      (run-hg (list "diff" file))
-      ;; files not staged can't be diffed.
-      ;; We could read and display their full content anyways?
-      ))
+    (run-hg (list "diff"
+                  (format nil "-U~D" *diff-context-lines*)
+                  file))
+    ;; files not staged can't be diffed.
+    ;; We could read and display their full content anyways?
+    ))
 
 (defun fossil-file-diff (file &key cached)
   (declare (ignorable cached))
@@ -463,8 +482,13 @@ allows to learn about the file state: modified, deleted, ignored… "
     (str:lines
      (run-git (list "log" "--pretty=oneline" "-n" (princ-to-string n))))))
 
-(defun git-latest-commits (&key (hash-length 8))
-  (let ((lines (%git-list-latest-commits)))
+(defun git-latest-commits (&key (n *commits-log-page-size*) (hash-length 8) (offset 0))
+  (let* ((n-arg (when n (list "-n" (princ-to-string n))))
+         (lines (str:lines
+                 (run-git (append (list "log"
+                                        "--pretty=oneline"
+                                        "--skip" (princ-to-string offset))
+                                  n-arg)))))
     (loop for line in lines
           for space-position = (position #\space line)
           for small-hash = (subseq line 0 hash-length)
@@ -473,8 +497,8 @@ allows to learn about the file state: modified, deleted, ignored… "
                         :message message
                         :hash small-hash))))
 
-(defun hg-latest-commits (&key (hash-length 8))
-  (declare (ignorable hash-length))
+(defun hg-latest-commits (&key (n *nb-latest-commits*) (hash-length 8))
+  (declare (ignorable n hash-length))
   (let ((out (run-hg "log")))
     ;; Split by paragraph.
         #| $ hg log
@@ -532,7 +556,7 @@ summary:     test
   ;; return bare result.
   (str:lines (run-fossil "timeline")))
 
-(defun latest-commits (&key (hash-length 8))
+(defun latest-commits (&key (n *nb-latest-commits*) (hash-length 8))
   "Return a list of strings or plists.
   The plist has a :hash and a :message, or simply a :line."
   (case *vcs*
@@ -541,7 +565,69 @@ summary:     test
     (:hg
      (hg-latest-commits))
     (t
-     (git-latest-commits :hash-length hash-length))))
+     (git-latest-commits :n n :hash-length hash-length))))
+
+(defun commits-log (&key (offset 0) limit (hash-length 8))
+  "Return a list of commits starting from the given offset.
+   If a limit is not provided, it returns all commits after the offset."
+  (case *vcs*
+    (:fossil
+     (fossil-commits-log :offset offset :limit limit :hash-length hash-length))
+    (:hg
+     (hg-commits-log :offset offset :limit limit :hash-length hash-length))
+    (:git
+     (git-commits-log :offset offset :limit limit :hash-length hash-length))
+    (t
+     (porcelain-error "Unknown VCS: ~a" *vcs*))))
+
+(defun git-commits-log (&key (offset 0) limit (hash-length 8))
+  (git-latest-commits :n limit
+                      :hash-length hash-length
+                      :offset offset))
+
+(defun hg-commits-log (&key (offset 0) limit (hash-length 8))
+  (declare (ignorable hash-length))
+  (let* ((commits (hg-latest-commits))
+         (total-commits (length commits))
+         (end (when limit
+                (min total-commits (+ offset limit)))))
+    (if (>= offset total-commits)
+        nil
+        (subseq commits offset end))))
+
+(defun fossil-commits-log (&key (offset 0) limit (hash-length 8))
+  (declare (ignorable hash-length))
+  (let* ((commits (fossil-latest-commits))
+         (total-commits (length commits))
+         (end (when limit (min total-commits (+ offset limit)))))
+    (if (>= offset total-commits)
+        nil
+        (subseq commits offset end))))
+
+(defun commit-count ()
+  "Get the total number of commits in the current branch."
+  (case *vcs*
+    (:git
+     (parse-integer
+      (str:trim (run-git '("rev-list" "--count" "HEAD")))))
+    (:hg
+     (parse-integer
+      (str:trim (run-hg '("id" "--num" "--rev" "tip")))))
+    (:fossil
+     (fossil-commit-count))
+    (t
+     (porcelain-error "commit-count not implemented for VCS: ~a" *vcs*))))
+
+(defun %not-fossil-commit-line (line)
+  (str:starts-with-p "+++ no more data" line))
+
+(defun fossil-commit-count ()
+  ;; Not really tested in Lem.
+  (length
+   ;; Does the timeline command always end with "+++ no more data (1) +++" ?
+   (remove-if #'%not-fossil-commit-line
+              (str:lines
+               (run-fossil (list "timeline" "--oneline"))))))
 
 ;; stage, add files.
 (defun git-stage (file)
@@ -678,7 +764,7 @@ M	src/ext/porcelain.lisp
 (defparameter *rebase-script-content*
   #+(or lem-ncurses lem-sdl2)
   (str:from-file
-   (asdf:system-relative-pathname (asdf:find-system "lem")
+   (asdf:system-relative-pathname (asdf:find-system "lem-legit")
                                   "scripts/dumbrebaseeditor.sh"))
   #-(or lem-ncurses lem-sdl2)
   ""

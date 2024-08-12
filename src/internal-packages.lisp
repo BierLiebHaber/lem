@@ -7,6 +7,7 @@
    :emoji-object
    :eol-cursor-object
    :eol-cursor-object-color
+   :eol-cursor-object-true-cursor-p
    :extend-to-eol-object
    :extend-to-eol-object-color
    :folder-object
@@ -144,6 +145,23 @@
    :syntax-variable-attribute
    :syntax-type-attribute
    :syntax-builtin-attribute
+   :document-header1-attribute
+   :document-header2-attribute
+   :document-header3-attribute
+   :document-header4-attribute
+   :document-header5-attribute
+   :document-header6-attribute
+   :document-bold-attribute
+   :document-italic-attribute
+   :document-underline-attribute
+   :document-link-attribute
+   :document-list-attribute
+   :document-code-block-attribute
+   :document-inline-code-attribute
+   :document-blockquote-attribute
+   :document-table-attribute
+   :document-task-list-attribute
+   :document-metadata-attribute
    :completion-attribute
    :non-focus-completion-attribute
    :attribute-image
@@ -151,7 +169,9 @@
    :attribute-height
    :attribute-font
    :cursor-attribute-p
-   :set-cursor-attribute)
+   :set-cursor-attribute
+   :display-dark-p
+   :display-light-p)
   ;; clipboard.lisp
   (:export
    :wsl-p
@@ -365,6 +385,17 @@
    :modeline-mode-names
    :modeline-position
    :modeline-posline
+   :modeline-name-attribute
+   :modeline-major-mode-attribute
+   :inactive-modeline-major-mode-attribute
+   :modeline-minor-modes-attribute
+   :inactive-modeline-minor-modes-attribute
+   :modeline-position-attribute
+   :inactive-modeline-position-attribute
+   :modeline-posline-attribute
+   :inactive-modeline-position-attribute
+   :inactive-modeline-name-attribute
+   :inactive-modeline-posline-attribute
    :convert-modeline-element)
   ;; command.lisp
   (:export
@@ -504,9 +535,10 @@
    :*file-completion-ignore-case*
    :completion
    :completion-test
-   :completion-hypheen
+   :completion-hyphen
    :completion-file
    :completion-strings
+   :completion-files
    :completion-buffer)
   ;; cursors.lisp
   (:export
@@ -574,7 +606,9 @@
    :attribute-foreground-color
    :attribute-background-color
    :attribute-foreground-with-reverse
-   :attribute-background-with-reverse)
+   :attribute-background-with-reverse
+   :cursor-type
+   :display-background-mode)
   ;; color-theme.lisp
   (:export
    :color-theme-names
@@ -583,7 +617,9 @@
    :current-theme
    :find-color-theme
    :color-theme
-   :get-color-theme-color)
+   :get-color-theme-color
+   :foreground-color
+   :background-color)
   ;; region.lisp
   (:export
    :check-marked-using-global-mode
@@ -596,7 +632,11 @@
    :*auto-format*
    :register-formatter
    :register-formatters
-   :format-buffer))
+   :format-buffer)
+  ;; site-init.lisp
+  (:export
+   :*inits-directory-name*
+   :load-site-init))
 #+sbcl
 (sb-ext:lock-package :lem-core)
 
